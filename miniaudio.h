@@ -45105,7 +45105,13 @@ static MA_INLINE ma_int16 ma_pcm_sample_u8_to_s16_no_scale(ma_uint8 x)
 
 static MA_INLINE ma_int64 ma_pcm_sample_s24_to_s32_no_scale(const ma_uint8* x)
 {
+#if defined(_MSC_VER) && _MSC_VER < 1900
+	/* to fix fatal error C1063: compiler limit : compiler stack overflow, hopefully without breaking anything */
+	ma_int32 s32 = (ma_int32)(((ma_uint32)x[0] << 8) | ((ma_uint32)x[1] << 16) | ((ma_uint32)x[2] << 24)) >> 8;
+    return (ma_int64)s32;
+#else
     return (ma_int64)(((ma_uint64)x[0] << 40) | ((ma_uint64)x[1] << 48) | ((ma_uint64)x[2] << 56)) >> 40;  /* Make sure the sign bits are maintained. */
+#endif
 }
 
 static MA_INLINE void ma_pcm_sample_s32_to_s24_no_scale(ma_int64 x, ma_uint8* s24)
