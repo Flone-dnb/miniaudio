@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 2.8)
 
 # Extract version from miniaudio.h
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/miniaudio.h" MINIAUDIO_HEADER_CONTENTS)
@@ -10,7 +10,7 @@ string(REGEX MATCH "#define MA_VERSION_REVISION[ \t]+([0-9]+)" _revision_match "
 set(MA_VERSION_REVISION "${CMAKE_MATCH_1}")
 set(MINIAUDIO_VERSION "${MA_VERSION_MAJOR}.${MA_VERSION_MINOR}.${MA_VERSION_REVISION}")
 
-project(miniaudio VERSION ${MINIAUDIO_VERSION})
+project(miniaudio)
 
 
 # Options
@@ -120,7 +120,7 @@ if(MINIAUDIO_FORCE_C89)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         message(WARNING "MSVC does not support forcing C89. MINIAUDIO_FORCE_C89 ignored.")
     else()
-        message(WARNING "MINIAUDIO_FORCE_C89 is enabled but the compiler does not support it. Ignoring.")
+        #message(WARNING "MINIAUDIO_FORCE_C89 is enabled but the compiler does not support it. Ignoring.")
     endif()
 endif()
 
@@ -517,8 +517,9 @@ target_compile_options    (miniaudio PRIVATE ${COMPILE_OPTIONS})
 target_compile_definitions(miniaudio PRIVATE ${COMPILE_DEFINES})
 
 
-add_library(libvorbis_interface INTERFACE)
+#add_library(libvorbis_interface INTERFACE)
 if(HAS_LIBVORBIS)
+    add_library(libvorbis_interface INTERFACE)
     if(TARGET vorbisfile)
         target_link_libraries(libvorbis_interface INTERFACE vorbisfile)
     elseif(PC_VORBISFILE_FOUND)
@@ -547,8 +548,9 @@ if(HAS_LIBVORBIS)
 endif()
 
 
-add_library(libopus_interface INTERFACE)
+#add_library(libopus_interface INTERFACE)
 if(HAS_LIBOPUS)
+    add_library(libopus_interface INTERFACE)
     if(TARGET opusfile)
         target_link_libraries     (libopus_interface INTERFACE opusfile)
     elseif(PC_OPUSFILE_FOUND)
@@ -614,9 +616,9 @@ endif()
 # Interface with common options to simplify the setup of tests and examples. Note that we don't pass
 # in COMPILE_DEFINES here because want to allow the tests and examples to define their own defines. If
 # we were to use COMPILE_DEFINES here many of the tests and examples would not compile.
-add_library(miniaudio_common_options INTERFACE)
-target_compile_options(miniaudio_common_options INTERFACE ${COMPILE_OPTIONS})
-target_link_libraries (miniaudio_common_options INTERFACE ${COMMON_LINK_LIBRARIES})
+#add_library(miniaudio_common_options INTERFACE)
+#target_compile_options(miniaudio_common_options INTERFACE ${COMPILE_OPTIONS})
+#target_link_libraries (miniaudio_common_options INTERFACE ${COMMON_LINK_LIBRARIES})
 
 function(is_backend_enabled NAME)
     if (NOT MINIAUDIO_NO_${NAME} AND (NOT MINIAUDIO_ENABLE_ONLY_SPECIFIC_BACKENDS OR MINIAUDIO_ENABLE_${NAME}))
@@ -842,7 +844,8 @@ else()
     set(MINIAUDIO_PC_LIBDIR "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-string(JOIN ", " MINIAUDIO_PC_REQUIRES_PRIVATE ${LINKED_LIBS})
+#string(JOIN ", " MINIAUDIO_PC_REQUIRES_PRIVATE ${LINKED_LIBS})
+string(REPLACE ";" ", " MINIAUDIO_PC_REQUIRES_PRIVATE "${LINKED_LIBS}")
 
 # Add vorbisfile and opusfile to pkg-config dependencies if found via pkg-config
 set(PC_REQUIRES_PRIVATE_LIST)
@@ -859,10 +862,33 @@ if(PC_REQUIRES_PRIVATE_LIST)
     string(JOIN ", " PC_REQUIRES_STR ${PC_REQUIRES_PRIVATE_LIST})
     string(APPEND MINIAUDIO_PC_REQUIRES_PRIVATE "${PC_REQUIRES_STR}")
 endif()
-list(TRANSFORM COMMON_LINK_LIBRARIES PREPEND "-l")
-string(JOIN " " MINIAUDIO_PC_LIBS_PRIVATE ${COMMON_LINK_LIBRARIES})
-list(TRANSFORM COMPILE_DEFINES PREPEND "-D")
-string(JOIN " " MINIAUDIO_PC_CFLAGS ${COMPILE_DEFINES})
+
+#list(TRANSFORM COMMON_LINK_LIBRARIES PREPEND "-l")
+#string(JOIN " " MINIAUDIO_PC_LIBS_PRIVATE ${COMMON_LINK_LIBRARIES})
+if (UNIX)
+set(_temp_list)
+foreach(_item ${COMMON_LINK_LIBRARIES})
+    list(APPEND _temp_list "-l${_item}")
+endforeach()
+set(COMMON_LINK_LIBRARIES ${_temp_list})
+string(REPLACE ";" " " MINIAUDIO_PC_LIBS_PRIVATE ${COMMON_LINK_LIBRARIES})
+else()
+set(MINIAUDIO_PC_LIBS_PRIVATE)
+endif()
+
+#list(TRANSFORM COMPILE_DEFINES PREPEND "-D")
+set(_temp_list)
+foreach(_item ${COMPILE_DEFINES})
+    list(APPEND _item "-D${_item}")
+endforeach()
+set(COMPILE_DEFINES ${_temp_list})
+
+#string(JOIN " " MINIAUDIO_PC_CFLAGS ${COMPILE_DEFINES})
+if(NOT COMPILE_DEFINES)
+set(MINIAUDIO_PC_CFLAGS)
+else()
+string(REPLACE ";" " " MINIAUDIO_PC_CFLAGS ${COMPILE_DEFINES})
+endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/miniaudio.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/miniaudio.pc" @ONLY)
 
